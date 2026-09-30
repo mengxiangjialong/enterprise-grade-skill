@@ -11,6 +11,17 @@ description: 负责前后端接口设计，明确"前端和后端如何通信"�
 
 > 前端和后端如何通信：契约清晰、统一、可追溯，联调前把边界钉死。
 
+## 〇、执行边界与指令优先级
+
+> **用户显式指令优先于本技能指南。** 用户要求与以下冲突时，按用户要求执行并说明差异。
+
+- **输入**：database 的字段映射、product/ui 的数据需求、architecture 的边界。
+- **步骤**：统一约定 → 逐接口契约 → 幂等/版本 → 错误码 → 追溯 → OpenAPI 产出。
+- **输出**：可做前后端契约的接口定义（方法/路径/Schema/错误码/权限 + OpenAPI）。
+- **不可臆测**：接口字段必须源于数据/业务需要，不发明字段；与 database/product 可追溯。
+- **何时询问/停止**：字段语义或权限边界不清时先确认。
+- **支持文件**：完整契约示例见 `references/example-contract.md`（需要产出/对照完整契约时加载）；其余 OpenAPI 模板可放 references/ 或 assets/，从本文件引用并注明何时加载。
+
 ## 一、强制输出（不可省略）
 
 1. **统一约定**：路径风格、鉴权方式、分页、排序、过滤、错误体。
@@ -167,56 +178,10 @@ ALWAYS 使用以下结构生成 API 设计：
 - 出现"其他字段等""参数等"等模糊表述
 - 无版本策略，破坏性变更无纪律
 
-## 十一、完整接口契约示例（含错误响应）
+## 十一、完整接口契约示例
 
-```
-# 任务管理 API 契约（示例）
-
-## 1. 通用约定
-- 基址 /api，RESTful；鉴权 Bearer JWT；错误体 { code, message, details? }
-- 分页 page/pageSize(默认20/上限100)，响应 { items, page, pageSize, total }
-- 排序 sort=created_at, order=desc；过滤 status=0,1
-
-## 3. 版本策略
-URL 版本 /api/v1/；v1 弃用窗口 12 个月。
-
-## 6. 接口定义
-
-### POST /api/v1/tasks  创建任务
-Permission: 登录用户
-Request: { "title": "string(必填,≤200)", "due_date": "date?" }
-Response 201:
-  { "id": 10, "title": "写周报", "status": 0, "created_at": "2026-03-01T10:00:00Z" }
-Idempotency-Key: 支持，客户端生成，服务端按 key 去重。
-Errors:
-  401 -> { code: "UNAUTHORIZED" }
-  422 -> { code: "TITLE_EMPTY", message: "标题不能为空" }
-
-### GET /api/v1/tasks  列表(分页/筛选)
-Permission: 登录用户（仅返回自己的；管理员可看全部）
-Query: page, pageSize, status?, sort?, order?
-Response 200:
-  { "items": [ ...Task ], "page": 1, "pageSize": 20, "total": 5 }
-Errors:
-  401 -> UNAUTHORIZED; 403 -> FORBIDDEN
-
-### DELETE /api/v1/tasks/{id}
-Permission: 创建者本人或管理员
-Response 204 无内容（幂等：重复删除返回 204）
-Errors: 401 UNAUTHORIZED; 403 FORBIDDEN(非本人); 404 TASK_NOT_FOUND
-
-## 7. 错误码表（节选）
-| HTTP | 业务码 | 含义 |
-| 401  | UNAUTHORIZED | 未认证 |
-| 403  | FORBIDDEN    | 越权 |
-| 404  | TASK_NOT_FOUND | 任务不存在 |
-| 422  | TITLE_EMPTY  | 标题为空 |
-
-## 9. 追溯
-POST /api/v1/tasks → FR-2 创建任务；tasks 表
-GET  /api/v1/tasks → FR-3 列表筛选；tasks 表
-DELETE /api/v1/tasks/{id} → BR-3 仅创建者可删；tasks 表
-```
+- 需要一份"合格完整契约长什么样"时，加载 `references/example-contract.md`（完整示例，含错误响应与追溯）。
+- 示例仅作对照用途；实际编写接口，仍需按本 SKILL.md 的模板与规则逐项补齐，不得照抄示例字段。
 
 ## 常识
 
